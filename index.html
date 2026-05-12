@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amanah Transparan — Sistem Keuangan Pesantren On-Chain</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+  <!-- Ethers.js untuk koneksi blockchain -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --teal: #1D9E75; --teal-light: #E1F5EE; --teal-dark: #085041; --teal-mid: #5DCAA5;
+      --amber: #BA7517; --amber-light: #FAEEDA; --amber-dark: #412402;
+      --coral: #D85A30; --coral-light: #FAECE7; --coral-dark: #4A1B0C;
+      --blue: #185FA5; --blue-light: #E6F1FB; --blue-dark: #042C53;
+      --gray: #888780; --gray-light: #F1EFE8; --gray-dark: #2C2C2A;
+      --text: #1a1a1a; --text-muted: #6b6b6b; --text-hint: #9b9b9b;
+      --bg: #ffffff; --bg2: #f8f8f6; --bg3: #f0efeb;
+      --border: rgba(0,0,0,0.08); --border2: rgba(0,0,0,0.14);
+      --radius: 8px; --radius-lg: 12px; --radius-xl: 16px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #e8e8e4; --text-muted: #a0a09a; --text-hint: #6a6a65;
+        --bg: #1c1c1a; --bg2: #242422; --bg3: #2c2c2a;
+        --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+        --teal-light: #043428; --teal-dark: #9FE1CB;
+        --amber-light: #2a1a04; --amber-dark: #FAC775;
+        --coral-light: #2a0e05; --coral-dark: #F0997B;
+        --blue-light: #041c35; --blue-dark: #85B7EB;
+        --gray-light: #242422; --gray-dark: #D3D1C7;
+      }
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg3);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* TOPBAR */
+    .topbar {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-inner {
+      max-width: 1100px; margin: 0 auto;
+      padding: 0.75rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-icon {
+      width: 38px; height: 38px; background: var(--teal);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg { width: 20px; height: 20px; fill: white; }
+    .logo-text { font-family: 'Lora', serif; font-size: 17px; font-weight: 600; color: var(--text); }
+    .logo-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .network-badge {
+      font-size: 11px; font-weight: 500;
+      padding: 4px 10px; border-radius: 20px;
+      background: var(--teal-light); color: var(--teal-dark);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .network-dot { width: 6px; height: 6px; background: var(--teal); border-radius: 50%; }
+    .btn-connect {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 12px; font-weight: 500;
+      padding: 6px 14px; border-radius: var(--radius);
+      background: var(--teal); color: white;
+      border: none; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-connect:hover { background: var(--teal-dark); }
+    .wallet-info {
+      font-size: 11px; color: var(--text-muted);
+      background: var(--bg2); padding: 4px 10px;
+      border-radius: 20px; border: 1px solid var(--border);
+      font-family: monospace; display: none;
+    }
+
+    /* LAYOUT */
+    .app-layout {
+      max-width: 1100px; margin: 0 auto;
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    /* SIDEBAR NAV */
+    .sidebar {
+      background: var(--bg);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      position: sticky; top: 76px;
+    }
+    .sidebar-section { padding: 0.5rem; }
+    .sidebar-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
+      color: var(--text-hint); padding: 0.5rem 0.75rem 0.25rem;
+      text-transform: uppercase;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 0.6rem 0.75rem; border-radius: var(--radius);
+      font-size: 13px; font-weight: 500; color: var(--text-muted);
+      cursor: pointer; transition: all 0.12s;
+      border: none; background: none; width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: var(--bg2); color: var(--text); }
+    .nav-item.active { background: var(--teal-light); color: var(--teal-dark); }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .nav-divider { border: none; border-top: 1px solid var(--border); margin: 0.25rem 0.5rem; }
+    .sidebar-footer {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--text-hint);
+    }
+    .sidebar-footer a { color: var(--teal); text-decoration: none; }
+
+    /* MAIN CONTENT */
+    .main { display: flex; flex-direction: column; gap: 1rem; }
+
+    /* PAGE SECTION */
+    .page { display: none; flex-direction: column; gap: 1rem; }
+    .page.active { display: flex; }
+
+    /* CARDS */
+    .card {
+      background: var(--bg);
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .card-title { font-size: 14px; font-weight: 600; }
+    .card-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .card-body { padding: 1.25rem; }
+
+    /* STATS ROW */
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .stat-box {
+      background: var(--bg2); border-radius: var(--radius-lg);
+      padding: 0.875rem 1rem;
+    }
+    .stat-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .stat-value { font-size: 20px; font-weight: 600; line-height: 1.2; }
+    .stat-value.teal { color: var(--teal); }
+    .stat-sub { font-size: 11px; color: var(--text-hint); margin-top: 3px; }
+
+    /* FORM */
+    .form-section-title {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      color: var(--text-hint); text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+    .form-group input, .form-group select {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px; padding: 8px 11px;
+      border: 1px solid var(--border2); border-radius: var(--radius);
+      background: var(--bg); color: var(--text);
+      outline: none; transition: border-color 0.15s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--teal); }
+    .input-wrap { position: relative; }
+    .input-prefix {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 12px; color: var(--text-muted); pointer-events: none;
+    }
+    .input-wrap input { padding-left: 30px; }
+    .form-hint { font-size: 11px; color: var(--text-hint); margin-top: 2px; }
+
+    .divider { border: none; border-top: 1px solid var(--border); }
+
+    /* RESULT PANEL */
+    .result-panel {
+      background: var(--teal-light);
+      border: 1px solid var(--teal-mid);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+    }
+    .result-panel.warn {
+      background: var(--amber-light);
+      border-color: #EF9F27;
+    }
+    .result-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.75rem; }
+    .result-label { font-size: 12px; font-weight: 500; color: var(--teal-dark); }
+    .result-label.warn { color: var(--amber-dark); }
+    .result-amount { font-family: 'Lora', serif; font-size: 32px; font-weight: 600; color: var(--teal-dark); line-height: 1; }
+    .result-amount.warn { color: var(--amber-dark); }
+    .result-period { font-size: 12px; color: var(--teal); margin-top: 4px; }
+    .result-period.warn { color: var(--amber); }
+
+    /* PROGRESS BAR */
+    .progress-wrap { margin-top: 0.75rem; }
+    .progress-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--teal-dark); margin-bottom: 5px; }
+    .progress-track { height: 7px; background: rgba(0,0,0,0.1); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; background: var(--teal); }
+    .progress-fill.warn { background: var(--amber); }
+    .progress-fill.danger { background: var(--coral); }
+
+    /* BREAKDOWN */
+    .breakdown { display: flex; flex-direction: column; gap: 5px; margin-top: 0.875rem; }
+    .breakdown-row {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.5); border-radius: var(--radius);
+      padding: 7px 10px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .bname { font-size: 13px; flex: 1; }
+    .bpct { font-size: 11px; color: var(--text-muted); width: 30px; text-align: right; }
+    .bamt { font-size: 12px; font-weight: 600; }
+
+    /* BUTTONS */
+    .btn {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 13px; font-weight: 500;
+      padding: 9px 18px; border-radius: var(--radius);
+      cursor: pointer; transition: all 0.15s;
+      border: 1px solid var(--border2);
+      background: var(--bg); color: var(--text);
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:hover { background: var(--bg2); }
+    .btn-primary { background: var(--teal); color: white; border-color: var(--teal); }
+    .btn-primary:hover { background: var(--teal-dark); border-color: var(--teal-dark); }
+    .btn-primary:disabled { background: var(--gray); border-color: var(--gray); cursor: not-allowed; opacity: 0.7; }
+    .btn-sm { font-size: 12px; padding: 6px 12px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* BADGES */
+    .badge { font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 20px; }
+    .badge-success { background: var(--teal-light); color: var(--teal-dark); }
+    .badge-warn { background: var(--amber-light); color: var(--amber-dark); }
+    .badge-danger { background: var(--coral-light); color: var(--coral-dark); }
+    .badge-info { background: var(--blue-light); color: var(--blue-dark); }
+
+    /* RECORD CARDS */
+    .record-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--bg);
+    }
+    .record-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.875rem 1.125rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg2);
+    }
+    .record-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .record-body { padding: 1rem 1.125rem; }
+    .record-amount { font-family: 'Lora', serif; font-size: 24px; font-weight: 600; }
+    .record-per { font-size: 12px; color: var(--text-muted); margin-bottom: 0.875rem; }
+    .mini-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .mini-label { font-size: 11px; color: var(--text-muted); width: 100px; flex-shrink: 0; }
+    .mini-track { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .mini-fill { height: 100%; border-radius: 2px; }
+    .mini-pct { font-size: 11px; color: var(--text-hint); width: 28px; text-align: right; }
+    .tx-row {
+      margin-top: 0.75rem; padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--text-hint); font-family: monospace;
+    }
+    .tx-dot { width: 6px; height: 6px; background: var(--teal); border-radius: 50%; flex-shrink: 0; }
+
+    /* VERIFY PAGE */
+    .verify-card {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 10px;
+    }
+    .verify-header {
+      padding: 0.75rem 1rem; background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .verify-table { width: 100%; border-collapse: collapse; }
+    .verify-table td { padding: 8px 1rem; font-size: 13px; border-bottom: 1px solid var(--border); }
+    .verify-table tr:last-child td { border-bottom: none; }
+    .verify-table td:first-child { color: var(--text-muted); width: 140px; }
+    .verify-table td:last-child { font-weight: 500; }
+    .mono { font-family: monospace; font-size: 11px; font-weight: 400 !important; }
+    .green { color: var(--teal) !important; }
+
+    /* INFO BOX */
+    .info-box {
+      background: var(--blue-light); border: 1px solid rgba(24,95,165,0.2);
+      border-radius: var(--radius); padding: 0.875rem 1rem;
+      display: flex; gap: 10px; font-size: 13px; color: var(--blue-dark);
+    }
+    .info-box svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+
+    /* CONTRACT INFO */
+    .contract-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 1rem; }
+    .contract-item {
+      background: var(--bg2); border-radius: var(--radius);
+      padding: 0.75rem 1rem;
+    }
+    .contract-key { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .contract-val { font-size: 13px; font-weight: 500; }
+
+    /* EMPTY STATE */
+    .empty {
+      text-align: center; padding: 3rem 1rem;
+      color: var(--text-muted); font-size: 13px;
+    }
+    .empty svg { width: 40px; height: 40px; margin-bottom: 0.75rem; opacity: 0.3; }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: var(--gray-dark); color: white;
+      padding: 0.75rem 1.25rem; border-radius: var(--radius-lg);
+      font-size: 13px; font-weight: 500;
+      transform: translateY(100px); opacity: 0;
+      transition: all 0.3s; z-index: 999;
+      display: flex; align-items: center; gap: 8px;
+      max-width: 320px; box-shadow: var(--shadow-md);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--teal-dark); }
+    .toast.error { background: #993C1D; }
+
+    /* SPINNER */
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white; border-radius: 50%;
+      animation: spin 0.7s linear infinite; display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .app-layout { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .contract-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="#" class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
+      </div>
+      <div>
+        <div class="logo-text">Amanah Transparan</div>
+        <div class="logo-sub">Sistem Keuangan Pesantren On-Chain</div>
+      </div>
+    </a>
+    <div class="topbar-right">
+      <div class="network-badge">
+        <div class="network-dot"></div>
+        Polygon Amoy Testnet
+      </div>
+      <span class="wallet-info" id="wallet-display"></span>
+      <button class="btn-connect" id="btn-connect" onclick="connectWallet()">
+        Hubungkan Wallet
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- APP LAYOUT -->
+<div class="app-layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Menu Utama</div>
+      <button class="nav-item active" onclick="showPage('input')" id="nav-input">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Input Biaya Bulanan
+      </button>
+      <button class="nav-item" onclick="showPage('dashboard')" id="nav-dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Dashboard Publik
+      </button>
+      <button class="nav-item" onclick="showPage('verify')" id="nav-verify">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+        Verifikasi On-Chain
+      </button>
+    </div>
+    <hr class="nav-divider">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Informasi</div>
+      <button class="nav-item" onclick="showPage('contract')" id="nav-contract">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Smart Contract
+      </button>
+      <button class="nav-item" onclick="showPage('panduan')" id="nav-panduan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Panduan Penggunaan
+      </button>
+    </div>
+    <div class="sidebar-footer">
+      v0.1.0 — MVP Demo<br>
+      <a href="https://github.com" target="_blank">Lihat di GitHub →</a>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- PAGE: INPUT BIAYA -->
+    <section class="page active" id="page-input">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Input Biaya Bulanan</div>
+            <div class="card-subtitle">Data akan tersimpan permanen di blockchain setelah dikonfirmasi</div>
+          </div>
+          <span class="badge badge-warn">Admin Only</span>
+        </div>
+        <div class="card-body">
+          <div class="form-section-title">Informasi Dasar</div>
+          <div class="form-grid">
+            <div class="form-group full">
+              <label>Nama Pesantren</label>
+              <input type="text" id="nama" value="PP. Al-Barokah" placeholder="Nama lengkap pesantren">
+            </div>
+            <div class="form-group">
+              <label>Jumlah Santri Aktif</label>
+              <input type="number" id="jumlah" value="1500" min="1" oninput="hitung()">
+              <div class="form-hint">Santri yang aktif bulan ini</div>
+            </div>
+            <div class="form-group">
+              <label>Periode Bulan</label>
+              <input type="month" id="bulan" value="2026-05">
+            </div>
+          </div>
+
+          <hr class="divider" style="margin: 1.25rem 0">
+          <div class="form-section-title">Rincian Pengeluaran (Rupiah)</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>1. Tenaga Pendidik</label>
+              <div class="input-wrap"><span class="input-prefix">Rp</span>
+                <input type="number" id="b1" value="163500000" oninput="hitung()">
+              </div>
+              <div class="form-hint">Gaji ustaz, ustazah, guru formal</div>
+            </div>
+            <div class="form-group">
+              <label>2. Pengurus Pondok</label>
+              <div class="input-wrap"><span class="input-prefix">Rp</span>
+                <input type="number" id="b2" value="102600000" oninput="hitung()">
+              </div>
+              <div class="form-hint">Kyai, musyrif, staf, keamanan</div>
+            </div>
+            <div class="form-group">
+              <label>3. Konsumsi Santri</label>
+              <div class="input-wrap"><span class="input-prefix">Rp</span>
+                <input type="number" id="b3" value="1125000000" oninput="hitung()">
+              </div>
+              <div class="form-hint">Makan 3x sehari seluruh santri</div>
+            </div>
+            <div class="form-group">
+              <label>4. Utilitas & Fasilitas</label>
+              <div class="input-wrap"><span class="input-prefix">Rp</span>
+                <input type="number" id="b4" value="118000000" oninput="hitung()">
+              </div>
+              <div class="form-hint">Listrik, air, gas, kebersihan</div>
+            </div>
+            <div class="form-group">
+              <label>5. Perlengkapan Belajar</label>
+              <div class="input-wrap"><span class="input-prefix">Rp</span>
+                <input type="number" id="b5" value="35500000" oninput="hitung()">
+              </div>
+              <div class="form-hint">ATK, buku, fotokopi, seragam</div>
+            </div>
+            <div class="form-group">
+              <label>6. Kegiatan & Lain-lain</label>
+              <div class="input-wrap"><span class="input-prefix">Rp</span>
+                <input type="number" id="b6" value="95000000" oninput="hitung()">
+              </div>
+              <div class="form-hint">Kegiatan, kesehatan, transport</div>
+            </div>
+          </div>
+
+          <hr class="divider" style="margin: 1.25rem 0">
+          <div class="form-section-title">Pengaturan SPP</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Batas Maksimal SPP (Cap)</label>
+              <div class="input-wrap"><span class="input-prefix">Rp</span>
+                <input type="number" id="cap" value="1500000" oninput="hitung()">
+              </div>
+              <div class="form-hint">Orang tua tidak akan ditagih melebihi ini</div>
+            </div>
+            <div class="form-group">
+              <label>Reserve Fund</label>
+              <div class="input-wrap"><span class="input-prefix">%</span>
+                <input type="number" id="reserve" value="7" min="0" max="20" oninput="hitung()" style="padding-left:28px">
+              </div>
+              <div class="form-hint">Dana darurat disisihkan dari total</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULT -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Hasil Kalkulasi Otomatis</div>
+          <button class="btn btn-sm" onclick="resetForm()">Reset ke Default</button>
+        </div>
+        <div class="card-body">
+          <div id="result-panel" class="result-panel">
+            <div class="result-top">
+              <div>
+                <div id="result-label" class="result-label">SPP Per Santri Bulan Ini</div>
+                <div id="result-amount" class="result-amount">Rp 1.234.000</div>
+                <div id="result-period" class="result-period">per santri · per bulan</div>
+              </div>
+              <span id="cap-badge" class="badge badge-success">✓ Di bawah batas</span>
+            </div>
+            <div class="progress-wrap">
+              <div class="progress-meta">
+                <span id="pct-label">0% dari batas maksimal</span>
+                <span id="cap-label">Cap: Rp 1.500.000</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="breakdown" class="breakdown" style="margin-top:1rem"></div>
+
+          <div style="margin-top:0.75rem; padding: 0.75rem 1rem; background:var(--bg2); border-radius:var(--radius); font-size:12px; color:var(--text-muted);">
+            <strong style="color:var(--text)">Total Semua Biaya:</strong>
+            <span id="res-total"> — </span> &nbsp;|&nbsp;
+            <strong style="color:var(--text)">Reserve Fund:</strong>
+            <span id="res-reserve"> — </span>
+          </div>
+
+          <div class="btn-row" style="margin-top:1rem">
+            <button class="btn btn-primary" id="btn-simpan" onclick="simpanData()">
+              <div class="spinner" id="spinner"></div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Simpan & Rekam On-Chain
+            </button>
+            <button class="btn" onclick="showPage('dashboard')">Lihat Dashboard →</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: DASHBOARD -->
+    <section class="page" id="page-dashboard">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Dashboard Publik</div>
+            <div class="card-subtitle">Terbuka untuk seluruh wali santri — tidak perlu login</div>
+          </div>
+          <span class="badge badge-success">● Live</span>
+        </div>
+        <div class="card-body">
+          <div class="stats-row" id="stats-row">
+            <div class="stat-box"><div class="stat-label">Total Rekaman</div><div class="stat-value teal" id="s-total">0</div><div class="stat-sub">bulan tercatat</div></div>
+            <div class="stat-box"><div class="stat-label">Rata-rata SPP</div><div class="stat-value" id="s-avg">Rp 0</div><div class="stat-sub">per santri</div></div>
+            <div class="stat-box"><div class="stat-label">Total Dikelola</div><div class="stat-value" id="s-grand">Rp 0</div><div class="stat-sub">semua periode</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="records-container">
+        <div class="empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <p>Belum ada data. Masukkan biaya di menu Input terlebih dahulu.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: VERIFIKASI -->
+    <section class="page" id="page-verify">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Verifikasi On-Chain</div>
+        </div>
+        <div class="card-body">
+          <div class="info-box" style="margin-bottom:1rem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div>Setiap data yang tersimpan menghasilkan transaction hash unik yang dapat diverifikasi siapapun melalui Polygon Explorer. Data bersifat <strong>permanen dan tidak dapat diubah</strong> setelah tercatat.</div>
+          </div>
+          <div id="verify-container">
+            <div class="empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <p>Belum ada transaksi. Simpan data biaya terlebih dahulu.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: SMART CONTRACT -->
+    <section class="page" id="page-contract">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Informasi Smart Contract</div>
+          <span class="badge badge-info">Solidity 0.8.20</span>
+        </div>
+        <div class="card-body">
+          <div class="info-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div>Saat ini berjalan dalam mode simulasi (demo). Untuk produksi, deploy file <code>PesantrenBudget.sol</code> ke Polygon Amoy Testnet via Remix IDE, lalu isi Contract Address di bawah.</div>
+          </div>
+          <div class="contract-grid">
+            <div class="contract-item"><div class="contract-key">Network</div><div class="contract-val">Polygon Amoy Testnet</div></div>
+            <div class="contract-item"><div class="contract-key">Chain ID</div><div class="contract-val">80002</div></div>
+            <div class="contract-item"><div class="contract-key">Contract Address</div><div class="contract-val" style="font-size:11px;font-family:monospace" id="contract-addr">Belum di-deploy</div></div>
+            <div class="contract-item"><div class="contract-key">Status</div><div class="contract-val green" id="contract-status">● Simulasi (Demo)</div></div>
+          </div>
+          <div class="form-group" style="margin-top:1rem">
+            <label>Masukkan Contract Address (setelah deploy)</label>
+            <input type="text" id="input-contract-addr" placeholder="0x..." style="font-family:monospace;font-size:12px">
+          </div>
+          <div class="btn-row" style="margin-top:0.75rem">
+            <button class="btn btn-primary btn-sm" onclick="setContractAddr()">Simpan Address</button>
+            <a href="https://remix.ethereum.org" target="_blank" class="btn btn-sm">Buka Remix IDE →</a>
+            <a href="https://amoy.polygonscan.com" target="_blank" class="btn btn-sm">Polygon Explorer →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- FUNGSI CONTRACT -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">Fungsi Smart Contract</div></div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="background:var(--bg2);border-radius:var(--radius);padding:0.875rem 1rem">
+              <div style="font-size:12px;font-weight:600;color:var(--teal);margin-bottom:4px">inputBudget()</div>
+              <div style="font-size:12px;color:var(--text-muted)">Admin menyimpan data biaya bulanan. Hanya bisa dipanggil oleh alamat admin yang terdaftar. Data tersimpan permanen on-chain.</div>
+            </div>
+            <div style="background:var(--bg2);border-radius:var(--radius);padding:0.875rem 1rem">
+              <div style="font-size:12px;font-weight:600;color:var(--blue);margin-bottom:4px">getBudgetByMonth() — view</div>
+              <div style="font-size:12px;color:var(--text-muted)">Siapapun bisa membaca data budget bulan tertentu tanpa perlu wallet. Transparan 100%.</div>
+            </div>
+            <div style="background:var(--bg2);border-radius:var(--radius);padding:0.875rem 1rem">
+              <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:4px">getSPPPerSantri() — view</div>
+              <div style="font-size:12px;color:var(--text-muted)">Mengembalikan nilai SPP per santri yang sudah dikalkulasi otomatis oleh smart contract.</div>
+            </div>
+            <div style="background:var(--bg2);border-radius:var(--radius);padding:0.875rem 1rem">
+              <div style="font-size:12px;font-weight:600;color:var(--coral);margin-bottom:4px">getAllRecords() — view</div>
+              <div style="font-size:12px;color:var(--text-muted)">Mengambil seluruh riwayat budget semua bulan. Digunakan untuk dashboard publik dan audit.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: PANDUAN -->
+    <section class="page" id="page-panduan">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Panduan Penggunaan</div></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:1rem">
+          <div>
+            <div class="form-section-title">Untuk Admin / Bendahara Pesantren</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;gap:12px;align-items:flex-start;padding:0.875rem;background:var(--bg2);border-radius:var(--radius)">
+                <div style="min-width:24px;height:24px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;margin-top:1px">1</div>
+                <div><div style="font-size:13px;font-weight:500;margin-bottom:2px">Instal MetaMask</div><div style="font-size:12px;color:var(--text-muted)">Download ekstensi MetaMask di browser Chrome/Brave. Buat akun dan simpan seed phrase dengan aman.</div></div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;padding:0.875rem;background:var(--bg2);border-radius:var(--radius)">
+                <div style="min-width:24px;height:24px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;margin-top:1px">2</div>
+                <div><div style="font-size:13px;font-weight:500;margin-bottom:2px">Tambah Polygon Amoy Testnet</div><div style="font-size:12px;color:var(--text-muted)">Di MetaMask, tambah network dengan Chain ID: 80002, RPC: https://rpc-amoy.polygon.technology</div></div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;padding:0.875rem;background:var(--bg2);border-radius:var(--radius)">
+                <div style="min-width:24px;height:24px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;margin-top:1px">3</div>
+                <div><div style="font-size:13px;font-weight:500;margin-bottom:2px">Deploy Smart Contract</div><div style="font-size:12px;color:var(--text-muted)">Buka Remix IDE, paste kode PesantrenBudget.sol, compile dan deploy ke Amoy Testnet. Copy contract address.</div></div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start;padding:0.875rem;background:var(--bg2);border-radius:var(--radius)">
+                <div style="min-width:24px;height:24px;background:var(--teal);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600;margin-top:1px">4</div>
+                <div><div style="font-size:13px;font-weight:500;margin-bottom:2px">Input Biaya Setiap Bulan</div><div style="font-size:12px;color:var(--text-muted)">Masukkan rincian biaya di halaman Input, klik "Simpan & Rekam On-Chain", konfirmasi di MetaMask.</div></div>
+              </div>
+            </div>
+          </div>
+          <hr class="divider">
+          <div>
+            <div class="form-section-title">Untuk Wali Santri</div>
+            <div style="font-size:13px;color:var(--text-muted);line-height:1.8">
+              Buka link dashboard pesantren di browser HP. Tidak perlu install apapun, tidak perlu akun. Semua data biaya bulanan terbuka untuk dibaca. Untuk memverifikasi keaslian data, klik TX Hash di setiap record — akan terbuka di Polygon Explorer yang bisa diakses siapapun di seluruh dunia.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // =============================================
+  // CONFIG — ganti setelah deploy contract nyata
+  // =============================================
+  const CONFIG = {
+    contractAddress: localStorage.getItem('contractAddr') || '',
+    chainId: '0x13882', // Polygon Amoy = 80002
+    rpcUrl: 'https://rpc-amoy.polygon.technology',
+    explorerUrl: 'https://amoy.polygonscan.com',
+    // ABI minimal untuk interaksi dengan contract
+    abi: [
+      "function inputBudget(uint256 bulan, uint256 biayaPendidik, uint256 biayaPengurus, uint256 biayaKonsumsi, uint256 biayaUtilitas, uint256 biayaPerlengkapan, uint256 biayaLainnya, uint256 jumlahSantri, uint256 capSPP, uint256 reservePct) external",
+      "function getAllRecords() external view returns (tuple(uint256 bulan, uint256 totalBiaya, uint256 sppPerSantri, uint256 jumlahSantri, uint256 capSPP, uint256 timestamp, address admin, bool overCap)[])",
+      "function getSPPPerSantri(uint256 bulan) external view returns (uint256)"
+    ]
+  };
+
+  // =============================================
+  // STATE
+  // =============================================
+  let wallet = null;
+  let records = JSON.parse(localStorage.getItem('pesantren_records') || '[]');
+  const COLORS = ['#1D9E75','#BA7517','#D85A30','#185FA5','#639922','#993556'];
+  const LABELS = ['Tenaga Pendidik','Pengurus Pondok','Konsumsi Santri','Utilitas & Fasilitas','Perlengkapan Belajar','Kegiatan & Lainnya'];
+
+  // =============================================
+  // UTILS
+  // =============================================
+  function fmt(n) { return 'Rp ' + Math.round(n).toLocaleString('id-ID'); }
+  function fmtShort(n) {
+    if(n >= 1e9) return 'Rp ' + (n/1e9).toFixed(2) + ' M';
+    if(n >= 1e6) return 'Rp ' + (n/1e6).toFixed(0) + ' jt';
+    return 'Rp ' + Math.round(n/1e3) + ' rb';
+  }
+  function fakeHash() {
+    const h = () => Math.floor(Math.random()*0xFFFFFFFF).toString(16).padStart(8,'0');
+    return '0x' + h() + h() + '...';
+  }
+  function showToast(msg, type='') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'toast ' + type + ' show';
+    setTimeout(() => t.className = 'toast', 3500);
+  }
+
+  // =============================================
+  // WALLET CONNECTION
+  // =============================================
+  async function connectWallet() {
+    if (typeof window.ethereum === 'undefined') {
+      showToast('MetaMask tidak ditemukan. Install MetaMask terlebih dahulu.', 'error');
+      return;
+    }
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      wallet = accounts[0];
+      document.getElementById('wallet-display').textContent =
+        wallet.slice(0,6) + '...' + wallet.slice(-4);
+      document.getElementById('wallet-display').style.display = 'block';
+      document.getElementById('btn-connect').textContent = '✓ Terhubung';
+      document.getElementById('btn-connect').style.background = 'var(--teal-dark)';
+      showToast('Wallet berhasil terhubung!', 'success');
+    } catch(e) {
+      showToast('Koneksi wallet dibatalkan.', 'error');
+    }
+  }
+
+  // =============================================
+  // KALKULASI
+  // =============================================
+  function getValues() {
+    return {
+      b1: parseFloat(document.getElementById('b1').value)||0,
+      b2: parseFloat(document.getElementById('b2').value)||0,
+      b3: parseFloat(document.getElementById('b3').value)||0,
+      b4: parseFloat(document.getElementById('b4').value)||0,
+      b5: parseFloat(document.getElementById('b5').value)||0,
+      b6: parseFloat(document.getElementById('b6').value)||0,
+      santri: parseFloat(document.getElementById('jumlah').value)||1,
+      cap: parseFloat(document.getElementById('cap').value)||1500000,
+      reserve: parseFloat(document.getElementById('reserve').value)||7,
+    };
+  }
+
+  function hitung() {
+    const v = getValues();
+    const biaya = [v.b1,v.b2,v.b3,v.b4,v.b5,v.b6];
+    const subtotal = biaya.reduce((a,b)=>a+b,0);
+    const reserveAmt = subtotal * (v.reserve/100);
+    const total = subtotal + reserveAmt;
+    const perSantri = total / v.santri;
+    const pct = Math.min(110, Math.round((perSantri/v.cap)*100));
+    const overCap = perSantri > v.cap;
+
+    // Update result panel
+    const panel = document.getElementById('result-panel');
+    panel.className = 'result-panel' + (overCap ? ' warn' : '');
+    document.getElementById('result-label').className = 'result-label' + (overCap ? ' warn' : '');
+    document.getElementById('result-amount').className = 'result-amount' + (overCap ? ' warn' : '');
+    document.getElementById('result-period').className = 'result-period' + (overCap ? ' warn' : '');
+
+    document.getElementById('result-amount').textContent = fmt(perSantri);
+    document.getElementById('cap-badge').textContent = overCap ? '⚠ Melebihi batas' : '✓ Di bawah batas';
+    document.getElementById('cap-badge').className = 'badge ' + (overCap ? 'badge-warn' : 'badge-success');
+    document.getElementById('pct-label').textContent = pct + '% dari batas maksimal';
+    document.getElementById('cap-label').textContent = 'Cap: ' + fmt(v.cap);
+
+    const fill = document.getElementById('progress-fill');
+    fill.style.width = Math.min(100, pct) + '%';
+    fill.className = 'progress-fill' + (pct > 100 ? ' danger' : pct > 85 ? ' warn' : '');
+
+    document.getElementById('res-total').textContent = ' ' + fmt(total);
+    document.getElementById('res-reserve').textContent = ' ' + fmt(reserveAmt);
+
+    // Breakdown
+    const el = document.getElementById('breakdown');
+    el.innerHTML = '';
+    biaya.forEach((b,i) => {
+      if(b === 0) return;
+      const p = total > 0 ? Math.round((b/total)*100) : 0;
+      const row = document.createElement('div');
+      row.className = 'breakdown-row';
+      row.innerHTML = `<div class="dot" style="background:${COLORS[i]}"></div>
+        <span class="bname">${LABELS[i]}</span>
+        <span class="bpct">${p}%</span>
+        <span class="bamt">${fmtShort(b)}</span>`;
+      el.appendChild(row);
+    });
+
+    return { biaya, subtotal, reserveAmt, total, perSantri, pct, overCap, v };
+  }
+
+  // =============================================
+  // SIMPAN DATA
+  // =============================================
+  async function simpanData() {
+    const { biaya, total, perSantri, overCap, v } = hitung();
+    const nama = document.getElementById('nama').value || 'Pesantren';
+    const bulan = document.getElementById('bulan').value || '2026-05';
+
+    const btn = document.getElementById('btn-simpan');
+    const spinner = document.getElementById('spinner');
+    btn.disabled = true;
+    spinner.style.display = 'block';
+
+    // Simulasi delay on-chain (ganti dengan ethers.js saat deploy nyata)
+    await new Promise(r => setTimeout(r, 1800));
+
+    const record = {
+      id: Date.now(),
+      nama, bulan,
+      biaya,
+      total,
+      perSantri,
+      santri: v.santri,
+      cap: v.cap,
+      reserve: v.reserve,
+      overCap,
+      txHash: fakeHash(),
+      timestamp: new Date().toISOString(),
+      admin: wallet || '0xDemo...Admin',
+      verified: true
+    };
+
+    records.unshift(record);
+    localStorage.setItem('pesantren_records', JSON.stringify(records));
+
+    btn.disabled = false;
+    spinner.style.display = 'none';
+
+    renderDashboard();
+    renderVerify();
+    showToast('✓ Data berhasil disimpan on-chain!', 'success');
+    showPage('dashboard');
+  }
+
+  // =============================================
+  // RENDER DASHBOARD
+  // =============================================
+  function renderDashboard() {
+    document.getElementById('s-total').textContent = records.length;
+    if(records.length === 0) {
+      document.getElementById('s-avg').textContent = 'Rp 0';
+      document.getElementById('s-grand').textContent = 'Rp 0';
+      document.getElementById('records-container').innerHTML = `
+        <div class="empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <p>Belum ada data. Masukkan biaya di menu Input terlebih dahulu.</p>
+        </div>`;
+      return;
+    }
+    const avgSPP = records.reduce((a,r)=>a+r.perSantri,0)/records.length;
+    const grand = records.reduce((a,r)=>a+r.total,0);
+    document.getElementById('s-avg').textContent = fmtShort(avgSPP);
+    document.getElementById('s-grand').textContent = fmtShort(grand);
+
+    const container = document.getElementById('records-container');
+    container.innerHTML = '';
+    records.forEach(r => {
+      const totalBiaya = r.biaya.reduce((a,b)=>a+b,0);
+      const barsHTML = r.biaya.map((b,i) => {
+        const p = totalBiaya > 0 ? Math.round((b/totalBiaya)*100) : 0;
+        if(b === 0) return '';
+        return `<div class="mini-bar-row">
+          <span class="mini-label">${LABELS[i].split(' ').slice(0,2).join(' ')}</span>
+          <div class="mini-track"><div class="mini-fill" style="width:${p}%;background:${COLORS[i]}"></div></div>
+          <span class="mini-pct">${p}%</span>
+        </div>`;
+      }).join('');
+
+      const d = new Date(r.timestamp);
+      const card = document.createElement('div');
+      card.className = 'record-card';
+      card.innerHTML = `
+        <div class="record-header">
+          <div>
+            <div style="font-size:14px;font-weight:600">${r.nama} — ${r.bulan}</div>
+            <div class="record-meta">${r.santri.toLocaleString('id-ID')} santri aktif · ${d.toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}</div>
+          </div>
+          <span class="badge ${r.overCap ? 'badge-warn' : 'badge-success'}">${r.overCap ? '⚠ Melebihi Cap' : '✓ Terverifikasi'}</span>
+        </div>
+        <div class="record-body">
+          <div class="record-amount">${fmt(r.perSantri)}</div>
+          <div class="record-per">per santri · Total: ${fmtShort(r.total)} · Reserve: ${r.reserve}%</div>
+          <div>${barsHTML}</div>
+          <div class="tx-row">
+            <div class="tx-dot"></div>
+            TX: ${r.txHash}
+            <a href="${CONFIG.explorerUrl}/tx/${r.txHash}" target="_blank" style="color:var(--teal);text-decoration:none;margin-left:4px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px">Verifikasi →</a>
+          </div>
+        </div>`;
+      container.appendChild(card);
+    });
+  }
+
+  // =============================================
+  // RENDER VERIFIKASI
+  // =============================================
+  function renderVerify() {
+    const container = document.getElementById('verify-container');
+    if(records.length === 0) {
+      container.innerHTML = `<div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <p>Belum ada transaksi. Simpan data biaya terlebih dahulu.</p>
+      </div>`;
+      return;
+    }
+    container.innerHTML = '';
+    records.forEach(r => {
+      const d = new Date(r.timestamp);
+      const div = document.createElement('div');
+      div.className = 'verify-card';
+      div.innerHTML = `
+        <div class="verify-header">
+          <strong style="font-size:13px">${r.bulan} — ${r.nama}</strong>
+          <span class="badge badge-success">● On-Chain</span>
+        </div>
+        <table class="verify-table">
+          <tr><td>TX Hash</td><td class="mono">${r.txHash}</td></tr>
+          <tr><td>Timestamp</td><td class="mono">${d.toLocaleString('id-ID')}</td></tr>
+          <tr><td>Admin</td><td class="mono">${r.admin}</td></tr>
+          <tr><td>Jumlah Santri</td><td>${r.santri.toLocaleString('id-ID')} orang</td></tr>
+          <tr><td>Total Biaya</td><td>${fmt(r.total)}</td></tr>
+          <tr><td>SPP Per Santri</td><td class="green">${fmt(r.perSantri)}</td></tr>
+          <tr><td>Batas Maksimal</td><td>${fmt(r.cap)}</td></tr>
+          <tr><td>Status Cap</td><td class="${r.overCap ? '' : 'green'}">${r.overCap ? '⚠ Melebihi batas — selisih ditutup reserve' : '✓ Dalam batas wajar'}</td></tr>
+          <tr><td>Explorer</td><td><a href="${CONFIG.explorerUrl}" target="_blank" style="color:var(--teal);font-size:12px">Lihat di PolygonScan →</a></td></tr>
+        </table>`;
+      container.appendChild(div);
+    });
+  }
+
+  // =============================================
+  // NAVIGATION
+  // =============================================
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-'+id).classList.add('active');
+    const nav = document.getElementById('nav-'+id);
+    if(nav) nav.classList.add('active');
+  }
+
+  function setContractAddr() {
+    const addr = document.getElementById('input-contract-addr').value.trim();
+    if(!addr.startsWith('0x')) { showToast('Address tidak valid', 'error'); return; }
+    CONFIG.contractAddress = addr;
+    localStorage.setItem('contractAddr', addr);
+    document.getElementById('contract-addr').textContent = addr;
+    document.getElementById('contract-status').textContent = '● Terhubung (Testnet)';
+    showToast('Contract address tersimpan!', 'success');
+  }
+
+  function resetForm() {
+    document.getElementById('b1').value = 163500000;
+    document.getElementById('b2').value = 102600000;
+    document.getElementById('b3').value = 1125000000;
+    document.getElementById('b4').value = 118000000;
+    document.getElementById('b5').value = 35500000;
+    document.getElementById('b6').value = 95000000;
+    document.getElementById('jumlah').value = 1500;
+    document.getElementById('cap').value = 1500000;
+    document.getElementById('reserve').value = 7;
+    hitung();
+  }
+
+  // =============================================
+  // INIT
+  // =============================================
+  hitung();
+  renderDashboard();
+  renderVerify();
+  if(CONFIG.contractAddress) {
+    document.getElementById('contract-addr').textContent = CONFIG.contractAddress;
+    document.getElementById('contract-status').textContent = '● Terhubung (Testnet)';
+  }
+</script>
+</body>
+</html>
